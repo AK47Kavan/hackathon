@@ -1,8 +1,8 @@
-import 'dart:async'; // Import Timer
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:hackathon/services/thingspeak_service.dart';
+
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
 
@@ -12,29 +12,19 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   final ThingSpeakService _service = ThingSpeakService();
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
 
   int heartRate = 0;
   int breathRate = 0;
   List<FlSpot> heartRateData = [];
   List<FlSpot> breathRateData = [];
 
-  late Timer _timer; // Declare the Timer
+  late Timer _timer;
 
   @override
   void initState() {
     super.initState();
-    _initializeNotifications();
-    _fetchVitalsData(); // Fetch data initially
-    _startDataFetching(); // Start periodic fetching every 10 seconds
-  }
-
-  void _initializeNotifications() {
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    final initializationSettings =
-        InitializationSettings(android: android);
-    flutterLocalNotificationsPlugin.initialize(initializationSettings);
+    _fetchVitalsData();
+    _startDataFetching();
   }
 
   Future<void> _fetchVitalsData() async {
@@ -44,47 +34,25 @@ class _MainScreenState extends State<MainScreen> {
         heartRate = data['heartRate'] ?? 0;
         breathRate = data['breathRate'] ?? 0;
 
-        // Add new data points to the graph
+        // Add data to chart (keep last 20 points)
         heartRateData.add(FlSpot(heartRateData.length.toDouble(), heartRate.toDouble()));
         breathRateData.add(FlSpot(breathRateData.length.toDouble(), breathRate.toDouble()));
-      });
 
-      // Check if values exceed thresholds and show alert if necessary
-      if (heartRate > 100) {
-        _showAlert('High Heart Rate', 'Heart Rate is too high: $heartRate BPM');
-      }
-      if (breathRate > 25) {
-        _showAlert('High Breathing Rate', 'Breathing Rate is too high: $breathRate BPM');
-      }
+        if (heartRateData.length > 20) heartRateData.removeAt(0);
+        if (breathRateData.length > 20) breathRateData.removeAt(0);
+      });
     }
   }
 
   void _startDataFetching() {
-    _timer = Timer.periodic(const Duration(seconds: 10), (timer) {
-      _fetchVitalsData(); // Fetch data every 10 seconds
+    _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      _fetchVitalsData();
     });
-  }
-
-  Future<void> _showAlert(String title, String message) async {
-    const androidDetails = AndroidNotificationDetails(
-      'alert_channel', 
-      'Alert Notifications',
-      importance: Importance.max,
-      priority: Priority.high,
-    );
-    final details = NotificationDetails(android: androidDetails);
-    await flutterLocalNotificationsPlugin.show(
-      0, 
-      title, 
-      message, 
-      details,
-      payload: 'item x',
-    );
   }
 
   @override
   void dispose() {
-    _timer.cancel(); // Cancel the timer when the widget is disposed
+    _timer.cancel();
     super.dispose();
   }
 
@@ -115,6 +83,8 @@ class _MainScreenState extends State<MainScreen> {
             const SizedBox(height: 20),
             _buildVitalsCard("Breathing Rate", "$breathRate bpm", Icons.air),
             const SizedBox(height: 30),
+            _buildLegend(),
+            const SizedBox(height: 10),
             _buildGraph(),
           ],
         ),
@@ -150,14 +120,32 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  Widget _buildLegend() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: const [
+        Icon(Icons.show_chart, color: Colors.red, size: 20),
+        SizedBox(width: 4),
+        Text("Heart Rate", style: TextStyle(color: Colors.white)),
+        SizedBox(width: 16),
+        Icon(Icons.show_chart, color: Colors.blue, size: 20),
+        SizedBox(width: 4),
+        Text("Breathing Rate", style: TextStyle(color: Colors.white)),
+      ],
+    );
+  }
+
   Widget _buildGraph() {
     return AspectRatio(
       aspectRatio: 1.7,
       child: LineChart(
         LineChartData(
-          gridData: FlGridData(show: false),
-          titlesData: FlTitlesData(show: false),
-          borderData: FlBorderData(show: true, border: Border.all(color: Colors.white, width: 1)),
+          gridData: const FlGridData(show: false),
+          titlesData: const FlTitlesData(show: false),
+          borderData: FlBorderData(
+            show: true,
+            border: Border.all(color: Colors.white, width: 1),
+          ),
           lineBarsData: [
             LineChartBarData(
               spots: heartRateData,

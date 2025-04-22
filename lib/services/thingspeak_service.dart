@@ -2,13 +2,12 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ThingSpeakService {
-  // Replace these with your ThingSpeak Channel ID and Read API Key
-  final String channelId = 'YOUR_CHANNEL_ID';
-  final String readApiKey = 'YOUR_READ_API_KEY';
+  final String channelId = '2927796';
+  final String readApiKey = 'QDTVN2ZKN07AIYCM';
 
   Future<Map<String, int>?> fetchVitals() async {
     final url = Uri.parse(
-        'https://api.thingspeak.com/channels/$channelId/feeds.json?api_key=$readApiKey&results=2');
+        'https://api.thingspeak.com/channels/$channelId/feeds.json?api_key=$readApiKey&results=1');
 
     try {
       final response = await http.get(url);
@@ -17,11 +16,14 @@ class ThingSpeakService {
         final feeds = data['feeds'];
 
         if (feeds.isNotEmpty) {
-          final heartRate = int.parse(feeds[0]['field1'] ?? '0');
-          final breathRate = int.parse(feeds[0]['field2'] ?? '0');
-          
+          final latestFeed = feeds[0];
+          final heartRate = double.tryParse(latestFeed['field1'] ?? '0')?.round() ?? 0;
+          final breathRate = double.tryParse(latestFeed['field2'] ?? '0')?.round() ?? 0;
+
           return {'heartRate': heartRate, 'breathRate': breathRate};
         }
+      } else {
+        print('HTTP error: ${response.statusCode}');
       }
     } catch (e) {
       print("Error fetching data: $e");
